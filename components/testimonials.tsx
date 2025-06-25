@@ -3,27 +3,27 @@ import { Star } from "lucide-react"
 
 const testimonials = [
   {
-    name: "Sarah Chen",
-    role: "Senior Frontend Developer",
-    company: "TechCorp",
+    name: "Mr Tia",
+    role: "CEO & Co-Founder of DevOps Easy Learning",
+    company: "DevOps Easy Learning",
     content:
       "CodeGenie has revolutionized my development workflow. The AI suggestions are incredibly accurate and save me hours every day.",
     rating: 5,
     avatar: "/placeholder.svg?height=60&width=60",
   },
   {
-    name: "Marcus Rodriguez",
-    role: "Full Stack Engineer",
-    company: "StartupXYZ",
+    name: "Collins Lagat",
+    role: "Senior DevOps Engineer",
+    company: "Angaza Technologies",
     content:
       "The debugging assistance is phenomenal. CodeGenie explains errors in a way that actually makes sense and provides actionable solutions.",
     rating: 5,
     avatar: "/placeholder.svg?height=60&width=60",
   },
   {
-    name: "Emily Johnson",
-    role: "Backend Developer",
-    company: "DataFlow Inc",
+    name: "Mr. Alianda",
+    role: "Mobile Developer & Lecturer",
+    company: "Umma University",
     content:
       "Integration with VS Code is seamless. It feels like having a senior developer pair programming with me 24/7.",
     rating: 5,
