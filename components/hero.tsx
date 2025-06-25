@@ -2,8 +2,10 @@
 
 import { Button } from "@/components/ui/button"
 import { Play, ArrowRight } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 export function Hero() {
+  const router = useRouter();
   return (
     <section className="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0D1B2A] via-[#0B0B0B] to-[#0B0B0B]">
       <div className="container mx-auto px-4 py-20">
@@ -24,11 +26,13 @@ export function Hero() {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button size="lg" className="bg-[#00C7B1] hover:bg-[#00A693] text-black font-semibold px-8 py-3">
+              <Button onClick={() => router.push("/sign-in")} size="lg" className="bg-[#00C7B1] hover:bg-[#00A693] text-black font-semibold px-8 py-3">
                 Try for Free
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
+
               <Button
+              onClick={() => router.push("/profile")}
                 size="lg"
                 variant="outline"
                 className="border-[#00C7B1] text-[#00C7B1] hover:bg-[#00C7B1] hover:text-black px-8 py-3"
