@@ -1,15 +1,24 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Eye, EyeOff, Mail, Lock, User, Loader2, Check } from "lucide-react";
+import confetti from "canvas-confetti";
+import Link from "next/link";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Eye, EyeOff, Mail, Lock, User, Loader2, Check } from "lucide-react"
-import confetti from "canvas-confetti"
-import Link from "next/link"
+// Firebase imports
+import { auth, googleProvider } from "@/lib/firebase";
+import {
+  createUserWithEmailAndPassword,
+  signInWithPopup,
+  updateProfile,
+  sendEmailVerification,
+  GoogleAuthProvider,
+} from "firebase/auth";
 
 export default function SignUpPage() {
   const [formData, setFormData] = useState({
@@ -17,13 +26,13 @@ export default function SignUpPage() {
     email: "",
     password: "",
     confirmPassword: "",
-  })
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [passwordStrength, setPasswordStrength] = useState(0)
-  const router = useRouter()
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [passwordStrength, setPasswordStrength] = useState(0);
+  const router = useRouter();
 
   const triggerConfetti = () => {
     // Celebration confetti for successful signup
@@ -35,86 +44,168 @@ export default function SignUpPage() {
           origin: { y: 0.6 },
           colors: ["#00C7B1", "#2563EB", "#6366F1", "#FFFFFF", "#10B981"],
           zIndex: 9999,
-        })
-      }, i * 250)
+        });
+      }, i * 250);
     }
-  }
+  };
 
   const checkPasswordStrength = (password: string) => {
-    let strength = 0
-    if (password.length >= 8) strength++
-    if (/[A-Z]/.test(password)) strength++
-    if (/[a-z]/.test(password)) strength++
-    if (/[0-9]/.test(password)) strength++
-    if (/[^A-Za-z0-9]/.test(password)) strength++
-    return strength
-  }
+    let strength = 0;
+    if (password.length >= 8) strength++;
+    if (/[A-Z]/.test(password)) strength++;
+    if (/[a-z]/.test(password)) strength++;
+    if (/[0-9]/.test(password)) strength++;
+    if (/[^A-Za-z0-9]/.test(password)) strength++;
+    return strength;
+  };
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
+    setFormData((prev) => ({ ...prev, [field]: value }));
 
     if (field === "password") {
-      setPasswordStrength(checkPasswordStrength(value))
+      setPasswordStrength(checkPasswordStrength(value));
     }
-  }
+  };
+
+  // Helper: attempt to invoke server-side 2FA (Twilio)
+  const callSend2FA = async (payload: { email?: string; phone?: string }) => {
+    try {
+      const response = await fetch("/api/send-2fa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to send 2FA code");
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (err) {
+      // don't block signup if 2FA call fails — just log
+      console.warn("2FA send failed:", err);
+      return null;
+    }
+  };
 
   const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setError("")
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
 
     // Validation
     if (!formData.fullName || !formData.email || !formData.password || !formData.confirmPassword) {
-      setError("Please fill in all fields")
-      setIsLoading(false)
-      return
+      setError("Please fill in all fields");
+      setIsLoading(false);
+      return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match")
-      setIsLoading(false)
-      return
+      setError("Passwords do not match");
+      setIsLoading(false);
+      return;
     }
 
     if (passwordStrength < 3) {
-      setError("Password is too weak. Please use a stronger password.")
-      setIsLoading(false)
-      return
+      setError("Password is too weak. Please use a stronger password.");
+      setIsLoading(false);
+      return;
     }
 
     try {
-      // Simulate account creation - replace with your Firebase Auth logic
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      // Create user with Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        formData.email,
+        formData.password
+      );
 
-      // Trigger success confetti
-      triggerConfetti()
+      // Update display name
+      await updateProfile(userCredential.user, {
+        displayName: formData.fullName,
+      });
 
-      // Wait for confetti animation then redirect
+      // Send Firebase email verification
+      await sendEmailVerification(userCredential.user);
+
+      // Call server-side Twilio 2FA
+      await callSend2FA({ email: formData.email });
+
+      // Success UI
+      triggerConfetti();
+
+      // Redirect after confetti
       setTimeout(() => {
-        router.push("/dashboard")
-      }, 3000)
-    } catch (err) {
-      setError("Account creation failed. Please try again.")
-      setIsLoading(false)
+        router.push("/dashboard");
+      }, 3000);
+    } catch (err: any) {
+      console.error("Signup error:", err);
+      
+      // Handle specific Firebase errors
+      if (err.code === "auth/email-already-in-use") {
+        setError("This email is already in use. Please sign in instead.");
+      } else if (err.code === "auth/weak-password") {
+        setError("Password should be at least 6 characters.");
+      } else if (err.code === "auth/invalid-email") {
+        setError("Please enter a valid email address.");
+      } else {
+        setError(err.message || "Account creation failed. Please try again.");
+      }
+      
+      setIsLoading(false);
     }
-  }
+  };
 
-  const handleGoogleSignUp = () => {
-    // Implement Google Sign Up
-    console.log("Google Sign Up clicked")
-  }
+  const handleGoogleSignUp = async () => {
+    setIsLoading(true);
+    setError("");
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+
+      // If user doesn't have a display name from Google, use email prefix
+      if (!user.displayName) {
+        const nameFromEmail = user.email?.split("@")[0] || "User";
+        await updateProfile(user, { displayName: nameFromEmail });
+      }
+
+      // Send email verification
+      await sendEmailVerification(user);
+
+      // Call Twilio 2FA
+      await callSend2FA({ email: user.email ?? undefined });
+
+      triggerConfetti();
+      setTimeout(() => {
+        router.push("/dashboard");
+      }, 3000);
+    } catch (err: any) {
+      console.error("Google signup error:", err);
+      
+      if (err.code === "auth/popup-closed-by-user") {
+        setError("Signup popup was closed. Please try again.");
+      } else if (err.code === "auth/account-exists-with-different-credential") {
+        setError("An account already exists with this email. Please sign in with your password.");
+      } else {
+        setError(err.message || "Google sign up failed.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const getPasswordStrengthColor = () => {
-    if (passwordStrength <= 2) return "bg-red-500"
-    if (passwordStrength <= 3) return "bg-yellow-500"
-    return "bg-green-500"
-  }
+    if (passwordStrength <= 2) return "bg-red-500";
+    if (passwordStrength <= 3) return "bg-yellow-500";
+    return "bg-green-500";
+  };
 
   const getPasswordStrengthText = () => {
-    if (passwordStrength <= 2) return "Weak"
-    if (passwordStrength <= 3) return "Medium"
-    return "Strong"
-  }
+    if (passwordStrength <= 2) return "Weak";
+    if (passwordStrength <= 3) return "Medium";
+    return "Strong";
+  };
 
   return (
     <div className="min-h-screen bg-[#0B0B0B] flex items-center justify-center px-4 py-8">
@@ -280,6 +371,7 @@ export default function SignUpPage() {
             <Button
               onClick={handleGoogleSignUp}
               variant="outline"
+              disabled={isLoading}
               className="w-full border-gray-700 bg-[#1F2937] text-white hover:bg-[#374151] transition-all duration-200"
             >
               <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
@@ -313,5 +405,5 @@ export default function SignUpPage() {
         </Card>
       </div>
     </div>
-  )
+  );
 }

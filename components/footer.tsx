@@ -61,7 +61,7 @@ export function Footer() {
               <li>
                 <a href="/admin" className="text-gray-400 hover:text-white transition-colors">
                   Admin
-                </a>
+                </a> 
               </li>
               <li>
                 <a href="#" className="text-gray-400 hover:text-white transition-colors">

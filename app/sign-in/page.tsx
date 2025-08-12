@@ -1,23 +1,26 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Eye, EyeOff, Mail, Lock, Loader2 } from "lucide-react";
+import confetti from "canvas-confetti";
+import Link from "next/link";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Eye, EyeOff, Mail, Lock, Loader2 } from "lucide-react"
-import confetti from "canvas-confetti"
-import Link from "next/link"
+// Firebase imports
+import { auth, googleProvider } from "@/lib/firebase";
+import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
 
 export default function SignInPage() {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
-  const router = useRouter()
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const router = useRouter();
 
   const triggerConfetti = () => {
     // Multiple bursts of confetti
@@ -29,42 +32,76 @@ export default function SignInPage() {
           origin: { y: 0.6 },
           colors: ["#00C7B1", "#2563EB", "#6366F1", "#FFFFFF"],
           zIndex: 9999,
-        })
-      }, i * 300)
+        });
+      }, i * 300);
     }
-  }
+  };
 
   const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setError("")
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
 
     try {
-      // Simulate authentication - replace with your Firebase Auth logic
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      // Sign in with Firebase Auth
+      await signInWithEmailAndPassword(auth, email, password);
 
-      if (email && password) {
-        // Trigger success confetti
-        triggerConfetti()
+      // Trigger success confetti
+      triggerConfetti();
 
-        // Wait for confetti animation then redirect
-        setTimeout(() => {
-          router.push("/dashboard")
-        }, 2500)
+      // Wait for confetti animation then redirect
+      setTimeout(() => {
+        router.push("/dashboard");
+      }, 2500);
+    } catch (err: any) {
+      console.error("Sign in error:", err);
+      
+      // Handle specific Firebase errors
+      if (err.code === "auth/invalid-credential") {
+        setError("Invalid email or password");
+      } else if (err.code === "auth/user-not-found") {
+        setError("No account found with this email");
+      } else if (err.code === "auth/wrong-password") {
+        setError("Incorrect password");
+      } else if (err.code === "auth/too-many-requests") {
+        setError("Too many attempts. Please try again later.");
       } else {
-        setError("Please fill in all fields")
-        setIsLoading(false)
+        setError(err.message || "Sign in failed. Please try again.");
       }
-    } catch (err) {
-      setError("Sign in failed. Please try again.")
-      setIsLoading(false)
+      
+      setIsLoading(false);
     }
-  }
+  };
 
-  const handleGoogleSignIn = () => {
-    // Implement Google Sign In
-    console.log("Google Sign In clicked")
-  }
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    setError("");
+
+    try {
+      // Sign in with Google
+      await signInWithPopup(auth, googleProvider);
+
+      // Trigger success confetti
+      triggerConfetti();
+
+      // Wait for confetti animation then redirect
+      setTimeout(() => {
+        router.push("/dashboard");
+      }, 2500);
+    } catch (err: any) {
+      console.error("Google sign in error:", err);
+      
+      if (err.code === "auth/popup-closed-by-user") {
+        setError("Sign in popup was closed. Please try again.");
+      } else if (err.code === "auth/account-exists-with-different-credential") {
+        setError("An account already exists with this email. Please sign in with your password.");
+      } else {
+        setError(err.message || "Google sign in failed.");
+      }
+      
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#0B0B0B] flex items-center justify-center px-4 py-8">
@@ -169,6 +206,7 @@ export default function SignInPage() {
             <Button
               onClick={handleGoogleSignIn}
               variant="outline"
+              disabled={isLoading}
               className="w-full border-gray-700 bg-[#1F2937] text-white hover:bg-[#374151] transition-all duration-200"
             >
               <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
@@ -202,5 +240,5 @@ export default function SignInPage() {
         </Card>
       </div>
     </div>
-  )
+  );
 }
